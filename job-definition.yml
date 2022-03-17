@@ -3,11 +3,38 @@ Description: Job Definition by Cloudformation
 Metadata: 
 
 Parameters: 
+  ProjectCode:
+    Description: project-code
+    Type: String
+  Version:
+    Description: Compute Environment Version
+    Type: String
 
 Mappings: 
 
 Conditions: 
 
 Resources: 
-
+  JobDefinition:
+  Type: AWS::Batch::JobDefinition
+  Properties:
+    Type: container
+    JobDefinitionName: !Sub "test-job-def-${ProjectCode}-pointnet-V${Version}"
+    ContainerProperties:
+      MountPoints:
+        - ReadOnly: false
+          SourceVolume: nvidia
+          ContainerPath: /usr/local/nvidia
+      Volumes:
+        - Host:
+            SourcePath: /var/lib/nvidia-docker/volumes/nvidia_driver/latest
+          Name: nvidia
+      Command:
+        - nvidia-smi
+      Memory: 2000
+      Privileged: true
+      JobRoleArn: String
+      ReadonlyRootFilesystem: true
+      Vcpus: 2
+      Image: nvidia/cuda
 Outputs:
