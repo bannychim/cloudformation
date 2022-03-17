@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Batch job configure
+
+
+ComputeEnvironment:
+  Type: AWS::Batch::ComputeEnvironment
+  Properties:
+    Type: MANAGED
+    ServiceRole: arn:aws:iam::010735330309:role/service-role/AWSBatchServiceRole
+    ComputeEnvironmentName: C4OnDemand
+    ComputeResources:
+      MaxvCpus: 128
+      SecurityGroupIds:
+        - sg-abcd1234
+      Type: EC2
+      Subnets:
+        - subnet-aaaaaaaa
+        - subnet-bbbbbbbb
+        - subnet-cccccccc
+      MinvCpus: 0
+      ImageId: ami-a1b2c3d4
+      InstanceRole: ecsInstanceRole
+      InstanceTypes:
+        - c4.large
+        - c4.xlarge
+        - c4.2xlarge
+        - c4.4xlarge
+        - c4.8xlarge
+      Ec2KeyPair: id_rsa
+      Tags: {"Name" : "Batch Instance - C4OnDemand"}
+      DesiredvCpus: 48
+    State: ENABLED
+
+
+JobDefinition:
+  Type: AWS::Batch::JobDefinition
+  Properties:
+    Type: container
+    JobDefinitionName: nvidia-smi
+    ContainerProperties:
+      MountPoints:
+        - ReadOnly: false
+          SourceVolume: nvidia
+          ContainerPath: /usr/local/nvidia
+      Volumes:
+        - Host:
+            SourcePath: /var/lib/nvidia-docker/volumes/nvidia_driver/latest
+          Name: nvidia
+      Command:
+        - nvidia-smi
+      Memory: 2000
+      Privileged: true
+      JobRoleArn: String
+      ReadonlyRootFilesystem: true
+      Vcpus: 2
+      Image: nvidia/cuda
+
+JobQueue:
+  Type: AWS::Batch::JobQueue
+  Properties:
+    ComputeEnvironmentOrder:
+      - Order: 1
+        ComputeEnvironment: C4OnDemand
+      - Order: 2
+        ComputeEnvironment: M4Spot
+    State: ENABLED
+    Priority: 1
+    JobQueueName: HighPriority
+

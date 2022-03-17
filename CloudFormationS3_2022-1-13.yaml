@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create User and S3 bucket with directory
+
+Parameters:
+  CustomerName:
+    Description: Enter customer name
+    Type: String
+    AllowedPattern: '[A-Za-z0-9_]+'
+    ConstraintDescription: must only contain uppercase and lowercase letters and numbers and _
+
+  #Create a default user for customer
+  DefaultUser: 
+    Description: Enter Default User name 
+    Type: String
+    AllowedPattern: '[A-Za-z0-9]+'
+    ConstraintDescription: must only contain uppercase and lowercase letters and numbers
+  
+  ProjectCode:
+    Description: Input project code
+    Type: String
+    AllowedPattern: '[a-z]{2}[0-9]{6}'
+    ConstraintDescription: must in format ep123456
+
+  DirsToCreate:
+    Description: "Comma delimited list of directories to create."
+    Type: CommaDelimitedList
+
+Resources:
+  # create default User for customer
+  USER1:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: !Ref DefaultUser
+      # assign user to customer group
+      Groups: 
+        - !Ref CUSTGROUP
+      LoginProfile:
+        Password: pa$$w0rd
+        PasswordResetRequired: true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMUserChangePassword
+
+  # create test user for Mindtrace developer to check user access right
+  TESTUSER:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: !Sub "${CustomerName}Test"
+      # assign user to customer group
+      Groups: 
+        - !Ref CUSTGROUP
+      LoginProfile:
+        Password: pa$$w0rd
+        PasswordResetRequired: true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMUserChangePassword
+
+  # create group for customer
+  CUSTGROUP:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: !Sub "${CustomerName}Group"
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 276ebd3a-a4e4-40e8-b144-2ca710d7018c
+  
+  # create inline policy to group
+  INPOLICU1:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: limit-access-to-bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowGroupToSeeBucketListInTheConsole
+            Effect: Allow
+            Action: 's3:ListAllMyBuckets'
+            Resource: '*'
+          - Sid: AllowRootLevelListingOfCustomerBucket
+            Effect: Allow
+            Action:
+              - 's3:ListBucket'
+              - 's3:GetBucketLocation'
+            Resource: !GetAtt S3BUCKET.Arn
+            Condition: 
+              StringEquals:
+                s3:prefix: 
+                - ""
+                s3:delimiter: 
+                - "/"
+          - Sid: AllowListFolderInInputMindtraceOutputMindtrace
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !GetAtt S3BUCKET.Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                - input-mindtrace/*
+                - output-mindtrace/*
+
+          - Sid: AllowUserToReadWriteObjectDataInInputMindtraceFolder
+            Effect: Allow
+            Action: 
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+              - 's3:GetObject'
+              - 's3:GetObjectAcl'
+              - 's3:DeleteObject'
+            Resource: !Sub "${S3BUCKET.Arn}/input-mindtrace/*"
+
+          - Sid: AllowUserToReadDownloadObjectDataInOutputMindtraceFolders
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "${S3BUCKET.Arn}/output-mindtrace/*"
+      Groups:
+        - !Ref CUSTGROUP
+
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub "aws-s3-bucket-${ProjectCode}"
+      PublicAccessBlockConfiguration: 
+            BlockPublicAcls: True
+            BlockPublicPolicy: True
+            IgnorePublicAcls: True
+            RestrictPublicBuckets: True
+  
+  S3CustomResource:
+    Type: Custom::S3CustomResource
+    Properties:
+      ServiceToken: !GetAtt AWSLambdaFunction.Arn
+      the_bucket: !Ref S3Bucket
+      dirs_to_create: !Ref DirsToCreate
+  
+  AWSLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: "Work with S3 Buckets!"
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-lambda'
+      Handler: index.handler
+      Role: !GetAtt AWSLambdaExecutionRole.Arn
+      Timeout: 360
+      Runtime: python3.6
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              # Init ...
+              the_event = event['RequestType']
+              print("The event is: ", str(the_event))
+              response_data = {}
+              s_3 = boto3.client('s3')
+              # Retrieve parameters
+              the_bucket = event['ResourceProperties']['the_bucket']
+              dirs_to_create = event['ResourceProperties']['dirs_to_create']
+              try:
+                  if the_event in ('Create', 'Update'):
+                      print("Requested folders: ", str(dirs_to_create))
+                      for dir_name in dirs_to_create:
+                          print("Creating: ", str(dir_name))
+                          s_3.put_object(Bucket=the_bucket,
+                                         Key=(dir_name
+                                              + '/'))
+                  elif the_event == 'Delete':
+                      print("Deleting S3 content...")
+                      b_operator = boto3.resource('s3')
+                      b_operator.Bucket(str(the_bucket)).objects.all().delete()
+                  # Everything OK... send the signal back
+                  print("Operation successful!")
+                  cfnresponse.send(event,
+                                   context,
+                                   cfnresponse.SUCCESS,
+                                   response_data)
+              except Exception as e:
+                  print("Operation failed...")
+                  print(str(e))
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event,
+                                   context,
+                                   cfnresponse.FAILED,
+                                   response_data)
+  AWSLambdaExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        Path: "/"
+        Policies:
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              Effect: Allow
+              Resource: arn:aws:logs:*:*:*
+            Version: '2012-10-17'
+          PolicyName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambda-CW
+        - PolicyDocument:
+            Statement:
+            - Action:
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:List*
+              Effect: Allow
+              Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+              - !Sub arn:aws:s3:::${S3Bucket}
+            Version: '2012-10-17'
+          PolicyName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambda-S3
+        RoleName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambdaExecutionRole      

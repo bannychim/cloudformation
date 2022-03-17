@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Job Definition by Cloudformation
+Metadata: 
+
+Parameters: 
+
+Mappings: 
+
+Conditions: 
+
+Resources: 
+
+Outputs:

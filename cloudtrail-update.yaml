@@ -1,0 +1,48 @@
+Parameters:
+  TrailName:
+    Type: String
+  BucketName:
+    Type: String
+Conditions:
+  IsOrganizationsSupported:
+    Fn::Equals:
+      - { Ref: "AWS::Partition" }
+      - "aws"
+Resources:
+  Trail:
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      S3BucketName: !Ref BucketName
+      S3KeyPrefix: "Uluru"
+      IsLogging: true
+      TrailName: !Ref TrailName
+      EnableLogFileValidation: true
+      IncludeGlobalServiceEvents: true
+      IsMultiRegionTrail: true
+      CloudWatchLogsLogGroupArn: "arn:aws:logs:us-west-1:010735330309:log-group:TrailLogGroup:*"
+      CloudWatchLogsRoleArn: "arn:aws:iam::010735330309:role/service-role/Cloudtrailroleforcloudwatch_trail_pointnet"
+      Tags:
+        - Key: "TagKeyIntTest"
+          Value: "TagValueIntTest"
+        - Key: "TagKeyIntTest2"
+          Value: "TagValueIntTest2"
+      EventSelectors:
+        - DataResources:
+            - Type: AWS::S3::Object
+              Values:
+                - !Sub "arn:${AWS::Partition}:s3:::"
+          IncludeManagementEvents: true
+          ReadWriteType: All
+Outputs:
+  ARN:
+    Description: The trail ARN
+    Value:
+      'Fn::GetAtt':
+        - Trail
+        - Arn
+  TopicArn:
+    Description: The SnS Topic ARN
+    Value:
+      'Fn::GetAtt':
+        - Trail
+        - SnsTopicArn

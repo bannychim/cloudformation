@@ -1,0 +1,120 @@
+Parameters:
+  CustomerName:
+    Description: Enter customer name
+    Type: String
+    AllowedPattern: '[A-Za-z0-9_]+'
+    ConstraintDescription: must only contain uppercase and lowercase letters and numbers and _
+
+  #Create a default user for customer
+  DefaultUser: 
+    Description: Enter Default User name 
+    Type: String
+    AllowedPattern: '[A-Za-z0-9]+'
+    ConstraintDescription: must only contain uppercase and lowercase letters and numbers
+  
+  ProjectCode:
+    Description: Input project code
+    Type: String
+    AllowedPattern: '[a-z]{2}[0-9]{6}'
+    ConstraintDescription: must in format ep123456
+
+Resources:
+  # create default User for customer
+  USER1:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: !Ref DefaultUser
+      # assign user to customer group
+      Groups: 
+        - !Ref CUSTGROUP
+      LoginProfile:
+        Password: pa$$w0rd
+        PasswordResetRequired: true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMUserChangePassword
+
+  # create test user for Mindtrace developer to check user access right
+  TESTUSER:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: !Sub "${CustomerName}Test"
+      # assign user to customer group
+      Groups: 
+        - !Ref CUSTGROUP
+      LoginProfile:
+        Password: pa$$w0rd
+        PasswordResetRequired: true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMUserChangePassword
+
+  # create group for customer
+  CUSTGROUP:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: !Sub "${CustomerName}Group"
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 276ebd3a-a4e4-40e8-b144-2ca710d7018c
+  
+  # create inline policy to group
+  INPOLICU1:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: limit-access-to-bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowGroupToSeeBucketListInTheConsole
+            Effect: Allow
+            Action: 's3:ListAllMyBuckets'
+            Resource: '*'
+          - Sid: AllowRootLevelListingOfCustomerBucket
+            Effect: Allow
+            Action:
+              - 's3:ListBucket'
+              - 's3:GetBucketLocation'
+            Resource: !GetAtt S3BUCKET.Arn
+            Condition: 
+              StringEquals:
+                s3:prefix: 
+                - ""
+                s3:delimiter: 
+                - "/"
+          - Sid: AllowListFolderInInputMindtraceOutputMindtrace
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !GetAtt S3BUCKET.Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                - input-mindtrace/*
+                - output-mindtrace/*
+
+          - Sid: AllowUserToReadWriteObjectDataInInputMindtraceFolder
+            Effect: Allow
+            Action: 
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+              - 's3:GetObject'
+              - 's3:GetObjectAcl'
+              - 's3:DeleteObject'
+            Resource: !Sub "${S3BUCKET.Arn}/input-mindtrace/*"
+
+          - Sid: AllowUserToReadDownloadObjectDataInOutputMindtraceFolders
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "${S3BUCKET.Arn}/output-mindtrace/*"
+
+      Groups:
+        - !Ref CUSTGROUP
+  S3BUCKET:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub "aws-s3-bucket-${ProjectCode}"
+      PublicAccessBlockConfiguration: 
+            BlockPublicAcls: True
+            BlockPublicPolicy: True
+            IgnorePublicAcls: True
+            RestrictPublicBuckets: True

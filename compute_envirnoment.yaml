@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  ProjectCode:
+    Description: project-code
+    Type: String
+  CEVersion:
+    Description: Compute Environment Version
+    Type: String
+Resources:
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      ServiceRole: arn:aws:iam::010735330309:role/AWSBatchServiceRole
+      ComputeEnvironmentName: !Sub "test-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
+      ComputeResources:
+        MaxvCpus: 96
+        SecurityGroupIds:
+          - sg-09c0656970a25e3c8
+        Type: EC2
+        Subnets:
+          - subnet-0ee3d2394e84dc7f2
+          - subnet-06ec4fc97f9621902
+          - subnet-03da6bc2618a6a4c5
+        MinvCpus: 0
+        ImageId: ami-a1b2c3d4
+        InstanceRole: ecsInstanceRole
+        InstanceTypes: 
+          - g3.4xlarge
+        LaunchTemplate:
+          LaunchTemplateName: dev-launch-template-pointnet
+          Version: $Default
+        Ec2Configuration:
+          - ImageType: ECS_AL2_NVIDIA
+        Tags: {"name": !Sub "test-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}", "projec-code": !Ref ProjectCode}
+      State: ENABLED
