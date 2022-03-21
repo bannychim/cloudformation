@@ -6,7 +6,7 @@ Parameters:
     Description: project-code
     Type: String
   Version:
-    Description: Compute Environment Version
+    Description: Version
     Type: String
   PipelineName:
     Description: Pipeline Name
