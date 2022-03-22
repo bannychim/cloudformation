@@ -78,7 +78,7 @@ Resources:
     Properties:
       ComputeEnvironmentOrder:
         - Order: 1
-          ComputeEnvironment: !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
+          ComputeEnvironment: !Ref ComputeEnvironment
       State: ENABLED
       Priority: 1
       JobQueueName: !Sub "${PipelineType}-job-queue-${ProjectCode}"
