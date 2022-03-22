@@ -41,6 +41,11 @@ Mappings:
     us-west-1:
       SecurityGroup: 
         - sg-ce753a84
+  DockerImage:
+    us-west-1:
+      DockerImageName: 276696791566.dkr.ecr.us-west-1.amazonaws.com/pointnet-test:latest
+    eu-west-2:
+      DockerImageName: 276696791566.dkr.ecr.eu-west-2.amazonaws.com/pointnet-test:latest
 
 Resources: 
   ComputeEnvironment:
@@ -100,11 +105,15 @@ Resources:
           - bucket_name=
           - Ref::S3bucket
           - !Sub "pipeline=${PipelineName}"
-        ResourceRequirments:
+        ResourceRequirements:
           - Type: VCPU
             Value: 4
           - Type: MEMORY
             Value: 40000
         Privileged: true
         JobRoleArn: arn:aws:iam::276696791566:role/test-role-for-ecs-container-pointnet
-        Image: 276696791566.dkr.ecr.us-west-1.amazonaws.com/pointnet-test:latest
+        Image: 
+          Fn::FindInMap:
+          - DockerImage
+          - Ref: AWS::Region
+          - DockerImageName
