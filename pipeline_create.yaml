@@ -1,5 +1,21 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Create CE, JQ, JD
+Description: Create Pipeline 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Pipeline Configuration"
+        Parameters:
+          - PipelineName
+          - PipelineType
+          - Version
+          - CEVersion
+      - Label:
+          default: "Project Information"
+        Parameters:
+          - ProjectCode
+          - S3Bucket
+          - Prefix
 
 Parameters:
   ProjectCode:
@@ -16,12 +32,17 @@ Parameters:
       - test
       - prod
   Version:
-    Description: Job Definition Version
+    Description: Pipeline Version
     Type: String
   PipelineName:
     Description: Pipeline Name
     Type: String
-
+  S3Bucket:
+    Description: S3 Bucket Name for pipeline
+    Type: String
+  Prefix:
+    Description: Prefix of S3 Bucket
+    Type: String
 
 Mappings:
   AWSVPCID:
@@ -117,3 +138,39 @@ Resources:
           - DockerImage
           - Ref: AWS::Region
           - DockerImageName
+  
+  S3BatchRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "Rule-S3-to-batch-pointnet"
+      Name: !Sub "${PipelineType}-s3-to-batch-pointnet-${ProjectCode}-V${Version}"
+      EventPattern: 
+        source: 
+          - "aws.s3"
+        detail-type: 
+          - "AWS API Call via CloudTrail"
+        detail: 
+          eventSource:
+            - "s3.amazonaws.com"
+          eventName:
+            - "CompleteMultipartUpload"
+            - "PutObject"
+            - "CopyObject"
+          requestParameters:
+            bucketName: 
+              - !Ref S3Bucket
+            key:
+              - prefix: !Ref Prefix
+      Targets:
+        - Id: batch-job
+          Arn: !Ref JobQueue
+          RoleArn: arn:aws:iam::276696791566:role/service-role/AWS_Events_Invoke_Batch_Job_Queue
+          BatchParameters:
+            JobDefinition: !Ref JobDefinition
+            JobName: !Sub "${PipelineType}-job-pointnet-${ProjectCode}-V${Version}"
+          InputTransformer:
+            InputPathsMap:
+              "S3BucketValue" : "$.detail.requestParameters.bucketName"
+              "S3KeyValue" : "$.detail.requestParameters.key"
+            InputTemplate: '{"Parameters" : {"S3bucket":"\"<S3BucketValue>\"", "S3key":"\"<S3KeyValue>\""}}'
+      State: "ENABLED"
