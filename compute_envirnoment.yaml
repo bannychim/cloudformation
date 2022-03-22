@@ -57,7 +57,7 @@ Resources:
         InstanceTypes: 
           - g3.4xlarge
         LaunchTemplate:
-          LaunchTemplateName: dev-launch-template-pointnet
+          LaunchTemplateName: launch-template-pointnet
           Version: $Default
         Ec2Configuration:
           - ImageType: ECS_AL2_NVIDIA
