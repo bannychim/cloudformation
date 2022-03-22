@@ -53,7 +53,7 @@ Resources:
           - Ref: AWS::Region
           - Subnet
         MinvCpus: 0
-        InstanceRole: ecsInstanceRole
+        InstanceRole: arn:aws:iam::276696791566:instance-profile/ecsInstanceRole
         InstanceTypes: 
           - g3.4xlarge
         LaunchTemplate:
