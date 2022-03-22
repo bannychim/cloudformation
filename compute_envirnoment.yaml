@@ -6,23 +6,46 @@ Parameters:
   CEVersion:
     Description: Compute Environment Version
     Type: String
+  PipelineType:
+    Description: Pipeline Type 
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - prod   
+
+Mappings:
+  AWSVPCID:
+    eu-west-2:
+      Subnet: subnet-24526f4d, subnet-0d55d941, subnet-5fccb225
+    us-west-1:
+      Subnet: subnet-4a05952c, subnet-d968c483
+  AWSSG:
+    eu-west-2:
+      SecurityGroup: sg-ce3aaeb2
+    us-west-1:
+      SecurityGroup: sg-ce753a84
+
 Resources:
   ComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
       Type: MANAGED
-      ComputeEnvironmentName: !Sub "test-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
+      ComputeEnvironmentName: !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
       ComputeResources:
         MaxvCpus: 96
         SecurityGroupIds:
-          - sg-09c0656970a25e3c8
+          Fn::FindInMap:
+          - AWSSG
+          - Ref: AWS::Region
+          - SecurityGroup
         Type: EC2
         Subnets:
-          - subnet-0ee3d2394e84dc7f2
-          - subnet-06ec4fc97f9621902
-          - subnet-03da6bc2618a6a4c5
+          Fn::FindInMap:
+          - AWSVPCID
+          - Ref: AWS::Region
+          - Subnet
         MinvCpus: 0
-        ImageId: ami-a1b2c3d4
         InstanceRole: ecsInstanceRole
         InstanceTypes: 
           - g3.4xlarge
@@ -31,5 +54,5 @@ Resources:
           Version: $Default
         Ec2Configuration:
           - ImageType: ECS_AL2_NVIDIA
-        Tags: {"name": !Sub "test-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}", "projec-code": !Ref ProjectCode}
+        Tags: {"name": !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}", "projec-code": !Ref ProjectCode}
       State: ENABLED
