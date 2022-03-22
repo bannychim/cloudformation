@@ -1,40 +1,44 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Job Definition by Cloudformation
-Metadata: 
 
 Parameters: 
   ProjectCode:
     Description: project-code
     Type: String
   Version:
-    Description: Compute Environment Version
+    Description: Version
     Type: String
-
-Mappings: 
-
-Conditions: 
+  PipelineName:
+    Description: Pipeline Name
+    Type: String
+  PipelineType:
+    Description: Pipeline Type 
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - prod   
 
 Resources: 
   JobDefinition:
-  Type: AWS::Batch::JobDefinition
-  Properties:
-    Type: container
-    JobDefinitionName: !Sub "test-job-def-${ProjectCode}-pointnet-V${Version}"
-    ContainerProperties:
-      MountPoints:
-        - ReadOnly: false
-          SourceVolume: nvidia
-          ContainerPath: /usr/local/nvidia
-      Volumes:
-        - Host:
-            SourcePath: /var/lib/nvidia-docker/volumes/nvidia_driver/latest
-          Name: nvidia
-      Command:
-        - nvidia-smi
-      Memory: 2000
-      Privileged: true
-      JobRoleArn: String
-      ReadonlyRootFilesystem: true
-      Vcpus: 2
-      Image: nvidia/cuda
-Outputs:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      JobDefinitionName: !Sub "${PipelineType}-job-def-${ProjectCode}-pointnet-V${Version}"
+      PlatformCapabilities:
+        - EC2
+      ContainerProperties:
+        Command:
+          - commit_id:latest
+          - python
+          - run.py
+          - input=
+          - Ref::S3key
+          - bucket_name=
+          - Ref::S3bucket
+          - !Sub "pipeline=${PipelineName}"
+        Memory: 40000
+        Privileged: true
+        JobRoleArn: arn:aws:iam::276696791566:role/test-role-for-ecs-container-pointnet
+        Vcpus: 4
+        Image: 276696791566.dkr.ecr.us-west-1.amazonaws.com/pointnet-test:latest
