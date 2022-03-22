@@ -18,6 +18,10 @@ Parameters:
   Version:
     Description: Job Definition Version
     Type: String
+  PipelineName:
+    Description: Pipeline Name
+    Type: String
+
 
 Mappings:
   AWSVPCID:
