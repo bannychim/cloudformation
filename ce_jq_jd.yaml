@@ -100,8 +100,11 @@ Resources:
           - bucket_name=
           - Ref::S3bucket
           - !Sub "pipeline=${PipelineName}"
-        Memory: 40000
+        ResourceRequirments:
+          - Type: VCPU
+            Value: 4
+          - Type: MEMORY
+            Value: 40000
         Privileged: true
         JobRoleArn: arn:aws:iam::276696791566:role/test-role-for-ecs-container-pointnet
-        Vcpus: 4
         Image: 276696791566.dkr.ecr.us-west-1.amazonaws.com/pointnet-test:latest
