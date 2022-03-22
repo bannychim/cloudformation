@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create CE and JQ
+
+Parameters:
+  ProjectCode:
+    Description: project-code
+    Type: String
+  CEVersion:
+    Description: Compute Environment Version
+    Type: String
+  PipelineType:
+    Description: Pipeline Type 
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - prod
+
+Mappings:
+  AWSVPCID:
+    eu-west-2:
+      subnet: subnet-0d55d941, subnet-5fccb225
+    us-west-2:
+    us-west-1:
+
+Resources: 
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      ComputeEnvironmentName: !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
+      ComputeResources:
+        MaxvCpus: 96
+        SecurityGroupIds:
+          - sg-09c0656970a25e3c8
+        Type: EC2
+        Subnets:
+          - subnet-0ee3d2394e84dc7f2
+          - subnet-06ec4fc97f9621902
+          - subnet-03da6bc2618a6a4c5
+        MinvCpus: 0
+        ImageId: ami-a1b2c3d4
+        InstanceRole: ecsInstanceRole
+        InstanceTypes: 
+          - g3.4xlarge
+        LaunchTemplate:
+          LaunchTemplateName: dev-launch-template-pointnet
+          Version: $Default
+        Ec2Configuration:
+          - ImageType: ECS_AL2_NVIDIA
+        Tags: {"name": !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}", "projec-code": !Ref ProjectCode}
+      State: ENABLED
+  
+  JobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Sub "${PipelineType}-ce-pointnet-${ProjectCode}-NotSpot-${CEVersion}"
+      State: ENABLED
+      Priority: 1
+      JobQueueName: !Sub "${PipelineType}-job-queue-${ProjectCode}"
