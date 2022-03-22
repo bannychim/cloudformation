@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Create CE and JQ
+Description: Create CE, JQ, JD
 
 Parameters:
   ProjectCode:
@@ -15,13 +15,28 @@ Parameters:
     AllowedValues:
       - test
       - prod
+  Version:
+    Description: Job Definition Version
+    Type: String
 
 Mappings:
   AWSVPCID:
     eu-west-2:
-      subnet: subnet-0d55d941, subnet-5fccb225
-    us-west-2:
+      Subnet: 
+        - subnet-24526f4d
+        - subnet-0d55d941
+        - subnet-5fccb225
     us-west-1:
+      Subnet:
+        - subnet-4a05952c
+        - subnet-d968c483
+  AWSSG:
+    eu-west-2:
+      SecurityGroup: 
+        - sg-ce3aaeb2
+    us-west-1:
+      SecurityGroup: 
+        - sg-ce753a84
 
 Resources: 
   ComputeEnvironment:
@@ -32,19 +47,22 @@ Resources:
       ComputeResources:
         MaxvCpus: 96
         SecurityGroupIds:
-          - sg-09c0656970a25e3c8
+          Fn::FindInMap:
+          - AWSSG
+          - Ref: AWS::Region
+          - SecurityGroup
         Type: EC2
         Subnets:
-          - subnet-0ee3d2394e84dc7f2
-          - subnet-06ec4fc97f9621902
-          - subnet-03da6bc2618a6a4c5
+          Fn::FindInMap:
+          - AWSVPCID
+          - Ref: AWS::Region
+          - Subnet
         MinvCpus: 0
-        ImageId: ami-a1b2c3d4
-        InstanceRole: ecsInstanceRole
+        InstanceRole: arn:aws:iam::276696791566:instance-profile/ecsInstanceRole
         InstanceTypes: 
           - g3.4xlarge
         LaunchTemplate:
-          LaunchTemplateName: dev-launch-template-pointnet
+          LaunchTemplateName: launch-template-pointnet
           Version: $Default
         Ec2Configuration:
           - ImageType: ECS_AL2_NVIDIA
@@ -60,3 +78,26 @@ Resources:
       State: ENABLED
       Priority: 1
       JobQueueName: !Sub "${PipelineType}-job-queue-${ProjectCode}"
+  
+  JobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      JobDefinitionName: !Sub "${PipelineType}-job-def-${ProjectCode}-pointnet-V${Version}"
+      PlatformCapabilities:
+        - EC2
+      ContainerProperties:
+        Command:
+          - commit_id:latest
+          - python
+          - run.py
+          - input=
+          - Ref::S3key
+          - bucket_name=
+          - Ref::S3bucket
+          - !Sub "pipeline=${PipelineName}"
+        Memory: 40000
+        Privileged: true
+        JobRoleArn: arn:aws:iam::276696791566:role/test-role-for-ecs-container-pointnet
+        Vcpus: 4
+        Image: 276696791566.dkr.ecr.us-west-1.amazonaws.com/pointnet-test:latest
