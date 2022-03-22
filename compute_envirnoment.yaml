@@ -17,14 +17,21 @@ Parameters:
 Mappings:
   AWSVPCID:
     eu-west-2:
-      Subnet: subnet-24526f4d, subnet-0d55d941, subnet-5fccb225
+      Subnet: 
+        - subnet-24526f4d
+        - subnet-0d55d941
+        - subnet-5fccb225
     us-west-1:
-      Subnet: subnet-4a05952c, subnet-d968c483
+      Subnet:
+        - subnet-4a05952c
+        - subnet-d968c483
   AWSSG:
     eu-west-2:
-      SecurityGroup: sg-ce3aaeb2
+      SecurityGroup: 
+        - sg-ce3aaeb2
     us-west-1:
-      SecurityGroup: sg-ce753a84
+      SecurityGroup: 
+        - sg-ce753a84
 
 Resources:
   ComputeEnvironment:
